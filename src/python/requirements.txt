@@ -1,0 +1,7 @@
+tensorflow 
+scikit-learn
+scipy
+numpy
+pillow
+pandas
+icecream
