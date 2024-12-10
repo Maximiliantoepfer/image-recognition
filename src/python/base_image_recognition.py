@@ -10,10 +10,14 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+from sklearn.decomposition import PCA
 import pickle
+
+import ElasticImageManager
 
 # initialize pretrained model
 model = ResNet50(weights='imagenet', include_top=False)
+elastic_manager = ElasticImageManager
 
 # function: to extract image features
 def extract_features(image_path, model):
@@ -40,10 +44,25 @@ def load_features(save_path):
 def add_image(image_path, features_dict, model, save_path, threshold=0.7):
     new_features = extract_features(image_path, model)
     image_name = os.path.basename(image_path)
+
+    # Training der PCA basierend auf bestehenden Features
+    pca = PCA(n_components=512)
+    if features_dict:
+        existing_features = np.array(list(features_dict.values()))
+        pca.fit(existing_features)  # Trainiere PCA auf bestehenden Daten
     
+    # Reshape und Reduktion
+    new_features_reshaped = new_features.reshape(1, -1)
+    reduced_vector = pca.transform(new_features_reshaped).flatten()
+
+    ic(reduced_vector)  # Debugging
+    ic(image_name, len(reduced_vector))
+
+
     # check, if a similar image exists
     for existing_image, existing_features in features_dict.items():
         similarity = cosine_similarity([new_features], [existing_features])[0][0]
+        # elastic_similarity = elastic_manager.search_similar_images(query_vector= new_features)
         
         if similarity > threshold:
             print(f"Warnung: Das Bild '{image_name}' ist ähnlich zu '{existing_image}' (Ähnlichkeit: {similarity:.2f}).")
@@ -52,6 +71,7 @@ def add_image(image_path, features_dict, model, save_path, threshold=0.7):
     # Kein ähnliches Bild gefunden, Merkmale speichern
     features_dict[image_name] = new_features
     save_features(features_dict, save_path)
+    # elastic_manager.index_image(image_name=image_name, image_vector=new_features)
     print(f"Bild '{image_name}' wurde hinzugefügt.")
     return features_dict
 
@@ -64,11 +84,11 @@ if __name__ == "__main__":
 
     # directory containing new images
     image_directory = "src/python/img"
-
     for image_file in os.listdir(image_directory):
         image_path = os.path.join(image_directory, image_file)
         if os.path.isfile(image_path):
             features_dict = add_image(
                 image_path=image_path, features_dict=features_dict, model=model, 
-                save_path=features_file, threshold=0.6
+                save_path=features_file, threshold=0.3
                 )
+
