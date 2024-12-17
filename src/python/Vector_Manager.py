@@ -1,42 +1,43 @@
 import os
 import pickle
 import faiss
+import numpy as np
+from sklearn.preprocessing import normalize
 from icecream import ic
 
+
 class Vector_Manager:
-    def __init__(self, save_path=""):
+    def __init__(self, save_path="", dimensions=100352):
         print(save_path)
-        self.index = faiss.IndexFlatIP(100352)
+        self.index_file = os.path.join(save_path, "faiss_index.bin")
+        try:
+            self.index = faiss.read_index(self.index_file)
+        except Exception as exception:
+            print(f"\n{exception}:\n\nCreating new Index\n")
+            base_index = faiss.IndexFlatIP(dimensions)
+            self.index = faiss.IndexIDMap(base_index)
+
         self.save_file = os.path.join(save_path, "image_features.pkl")
+        self.id_map = []
 
-    def add(self, vector):
-        if vector.ndim == 1:
-            vector = vector.reshape(1, -1)
-        faiss.normalize_L2(vector)
-        self.index.add(vector)
-        # self.index.add_with_ids
+    def save(self):
+        faiss.write_index(self.index, self.index_file)
+
+    def close(self):
+        self.save()
+
+
+    def add(self, id, vector):
+        vector = normalize(np.array([vector]), norm='l2')
+        self.index.add_with_ids(vector, np.array([id]))
+        self.id_map.append(id)
         return 0
 
-    def query(self, query_vector):
-        ic(query_vector)
-        if query_vector.ndim == 1:
-            query_vector = query_vector.reshape(1, -1)
-        faiss.normalize_L2(query_vector)
-        sim, ids = self.index.search(query_vector, k=5)
-        ic(f"Top 5 ähnliche Vektoren (IDs): {ids}")
-        ic(f"Cosinus-Ähnlichkeiten: {sim}")
+    def search(self, query_vector, k=1):
+        query_vector = normalize(np.array([query_vector]), norm='l2')
+        sims, ids = self.index.search(query_vector, k=k)
+        sims = sims[0]
+        ids = ids[0]
+        return (ids, sims)
 
-
-    # function: to save image features
-    def save(self, vectores_dict):
-        with open(self.save_file, "wb") as f:
-            pickle.dump(vectores_dict, f)
-        return 0
-
-    # function: to load image features
-    def load(self):
-        if os.path.exists(self.save_file):
-            with open(self.save_file, "rb") as f:
-                return pickle.load(f)
-        return {}
     
