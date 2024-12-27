@@ -10,7 +10,8 @@ from Vector_Manager import Vector_Manager
 
 class Image_Manager:
     def __init__(self): 
-        self.save_path="src/python/"
+        self.save_path="src/python/data"
+        os.makedirs(self.save_path, exist_ok=True)
         self.vector_manager = Vector_Manager(save_path=self.save_path)
         self.model = ResNet50(weights='imagenet', include_top=False)
         self.counter = 0
@@ -26,8 +27,8 @@ class Image_Manager:
             pickle.dump(self.id_name_map, f)
 
     def close(self):
-        self.vector_manager.close()
         self.save()
+        self.vector_manager.close()
 
 
     # method: to extract image features
@@ -39,26 +40,45 @@ class Image_Manager:
         features = self.model.predict(img_array)
         return features.flatten()
 
-
+    
     # function: to add a new image 
-    def add_image(self, image_path, threshold=0.3):
-        print("\n")
+    def add_image(self, image_path :str, id :int):
         image_name = os.path.basename(image_path)
-        print(image_name)
-
         features = self.extract_features(image_path)
-        (ids, similarities) = self.vector_manager.search(query_vector=features)
-        if ids and similarities:
-            for i, id in enumerate(ids): 
-                sim = similarities[i]
-                if not sim == -1 and sim > threshold:
-                    print(f"Warnung: Das Bild '{image_name}' ist zu {(round(sim*100, 2))}% ähnlich zu '{self.id_name_map[id]}'.")
-                    return 1
+        if not self.vector_manager.exists_id(id=id):
+            self.vector_manager.add(id=id, vector=features)
+            self.id_name_map[id] = image_name
+            self.save()
+            self.counter += 1
+            return 0
+        else:
+            return 1
 
-        self.vector_manager.add(id=self.counter, vector=features)
-        self.id_name_map[self.counter] = image_name
-        self.save()
-        self.counter += 1
+    
+    # function: get similar images 
+    def get_similars(self, image_path, threshold=0.3, k=1):
+        image_name = os.path.basename(image_path)
+        features = self.extract_features(image_path)
+        similars = []
+        (ids, similarities) = self.vector_manager.search(query_vector=features, k=k)
+        ic(ids)
+        ic(similarities)
+        for i, id in enumerate(ids): 
+            sim = similarities[i]
+            if sim > threshold:
+                ic(self.id_name_map)
+                ic(id)
+                new_img_name = self.id_name_map[id]
+                print(f"Warn: Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{new_img_name}'")
+                similars.append((i, id, new_img_name, sim))
+        return similars
 
-        print(f"Bild '{image_name}' wurde hinzugefügt.")
-        return 0
+
+    # delete functions
+    def delete_by_ids(self, ids: list):
+        self.vector_manager.delete(ids=ids)
+
+    def delete_by_name(self, name: str):
+        id_ = self.vector_manager.get_id_by_name(name)
+        self.vector_manager.delete(ids=[id_])
+

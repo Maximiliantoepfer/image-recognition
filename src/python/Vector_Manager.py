@@ -39,5 +39,25 @@ class Vector_Manager:
         sims = sims[0]
         ids = ids[0]
         return (ids, sims)
-
     
+    def get_id_by_name(self, id):
+        if id in self.id_map:
+            return self.id_map[id]
+        else:
+            return None
+
+    def delete(self, ids: list):
+        if ids:
+            existing_ids = []
+            for id in ids:
+                if id in self.id_map:
+                    existing_ids.append(id)
+                    self.id_map.remove(id)
+                    print(f"Removing ID {id}")
+            self.index.remove_ids(np.array(existing_ids, dtype=np.int64))
+            print(f"IDs {existing_ids} successfully removed.")
+        else:
+            print(f"ID {id} not found in the index.")
+
+    def exists_id(self, id):
+        return id in self.id_map
