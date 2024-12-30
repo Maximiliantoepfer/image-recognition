@@ -7,7 +7,7 @@ from icecream import ic
 
 
 class Vector_Manager:
-    def __init__(self, save_path="", dimensions=100352):
+    def __init__(self, dimensions, save_path=""):
         print(save_path)
         self.index_file = os.path.join(save_path, "faiss_index.bin")
         try:
@@ -35,6 +35,8 @@ class Vector_Manager:
 
     def search(self, query_vector, k=1):
         query_vector = normalize(np.array([query_vector]), norm='l2')
+        print(self.index.d)  # Gibt die erwartete Dimension des Indexes zurück
+        print(query_vector.shape)  # Sollte (d,) sein, wobei d die Dimension ist
         sims, ids = self.index.search(query_vector, k=k)
         sims = sims[0]
         ids = ids[0]

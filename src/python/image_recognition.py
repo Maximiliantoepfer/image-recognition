@@ -3,7 +3,9 @@ from Image_Manager import Image_Manager
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-image_manager = Image_Manager()
+# Elastic: dimensions=4096, threshold=0.6
+# Faiss: dimensions=100352, threshold=0.3
+image_manager = Image_Manager(threshold=0.3)
 
 # Directory, for the uploaded images
 UPLOAD_FOLDER = 'src/python/upload'
@@ -80,7 +82,6 @@ def check_for_similar_images():
     if os.path.isfile(image_path):
         sims = image_manager.get_similars(
             image_path=image_path, 
-            threshold=0.3, 
             k=5
         )
         if sims:

@@ -5,21 +5,42 @@ from icecream import ic
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
+from sklearn.decomposition import PCA
 from Vector_Manager import Vector_Manager
 
 
 class Image_Manager:
-    def __init__(self): 
+    # Elastic: dimensions=4096, threshold=0.6
+    # Faiss: dimensions=100352, threshold=0.3
+    def __init__(self, dimensions=0, threshold=0.3): 
         self.save_path="src/python/data"
         os.makedirs(self.save_path, exist_ok=True)
-        self.vector_manager = Vector_Manager(save_path=self.save_path)
+        self.threshold = threshold
         self.model = ResNet50(weights='imagenet', include_top=False)
+        if not dimensions: 
+            input_image = np.zeros((1, 224, 224, 3))
+            output = self.model.predict(input_image).flatten()
+            dimensions = output.shape
+        self.vector_manager = Vector_Manager(dimensions=dimensions, save_path=self.save_path)
+        # if dimensions == 100352:
+        #     self.model = ResNet50(weights='imagenet', include_top=False)
+        # else:
+        #     base_model = ResNet50(weights='imagenet', include_top=False)
+        #     x = base_model.output
+        #     x = GlobalAveragePooling2D()(x)
+        #     reduced_output = Dense(dimensions, activation=None)(x)
+        #     self.model = Model(inputs=base_model.input, outputs=reduced_output)
+
         self.counter = 0
         self.id_name_map = {}
         self.id_name_map_file = os.path.join(self.save_path, "id_name_map.pkl")
         if os.path.exists(self.id_name_map_file):
             with open(self.id_name_map_file, "rb") as f:
                 self.id_name_map = pickle.load(f)
+        # PCA setup
+        # self.pca = PCA(n_components=4096)
+        # if pca_fit_folder:
+        #     self.fit_pca_on_folder(pca_fit_folder)
 
     def save(self):
         self.vector_manager.save()
@@ -40,11 +61,33 @@ class Image_Manager:
         features = self.model.predict(img_array)
         return features.flatten()
 
+    # def fit_pca_on_folder(self, folder_path):
+    #     """Liest alle Bilder aus einem Ordner, extrahiert deren Features und passt PCA an."""
+    #     feature_list = []
+    #     for file_name in os.listdir(folder_path):
+    #         file_path = os.path.join(folder_path, file_name)
+    #         if os.path.isfile(file_path):
+    #             try:
+    #                 features = self.extract_features(file_path)
+    #                 feature_list.append(features)
+    #             except Exception as e:
+    #                 print(f"Fehler beim Verarbeiten von {file_path}: {e}")
+    #     if feature_list:
+    #         features_matrix = np.vstack(feature_list)  # Matrix von Features
+    #         self.pca.fit(features_matrix)
+    #         print("PCA angepasst.")
+
+    # def transform_features(self, features):
+    #     """Wendet PCA-Transformation auf die extrahierten Features an."""
+    #     features = np.array(features).reshape(1, -1)  # Sicherstellen, dass es eine Matrix ist
+    #     reduced_features = self.pca.transform(features)
+    #     return reduced_features.flatten()
     
     # function: to add a new image 
     def add_image(self, image_path :str, id :int):
         image_name = os.path.basename(image_path)
         features = self.extract_features(image_path)
+        # features = self.transform_features(features)
         if not self.vector_manager.exists_id(id=id):
             self.vector_manager.add(id=id, vector=features)
             self.id_name_map[id] = image_name
@@ -56,9 +99,11 @@ class Image_Manager:
 
     
     # function: get similar images 
-    def get_similars(self, image_path, threshold=0.3, k=1):
+    def get_similars(self, image_path, threshold=0, k=1):
+        if not threshold: threshold = self.threshold
         image_name = os.path.basename(image_path)
         features = self.extract_features(image_path)
+        # features = self.transform_features(features)
         similars = []
         (ids, similarities) = self.vector_manager.search(query_vector=features, k=k)
         ic(ids)
