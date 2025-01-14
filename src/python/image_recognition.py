@@ -74,7 +74,7 @@ def check_for_similar_images():
     try:
         image_id = int(image_id)
     except Exception as e:
-        return jsonify({"error": f"image_id has to be a number!\n{e}"}), 400
+        return jsonify({"error": f"image_id has to be a number\n{e}"}), 400
 
     # Bild speichern
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_name)
@@ -85,7 +85,7 @@ def check_for_similar_images():
             k=5
         )
         if sims:
-            print("Not automaticly adding image, because there already exists a similar one")
+            print("There already exists a similar image")
             print(sims)
             response_data = [
                 {"index": int(i), "image_id": str(id_), "image_name": str(image_name), "similarity": str(similarity)}
