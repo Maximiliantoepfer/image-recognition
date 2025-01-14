@@ -7,20 +7,23 @@ from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from sklearn.decomposition import PCA
 from Vector_Manager import Vector_Manager
-
+from datasketch import MinHash
 
 class Image_Manager:
     # Elastic: dimensions=4096, threshold=0.6
     # Faiss: dimensions=100352, threshold=0.3
     def __init__(self, dimensions=0, threshold=0.3): 
+        self.num_perm=128
         self.save_path="src/python/data"
+        self.test_jaccard_map = {}
         os.makedirs(self.save_path, exist_ok=True)
         self.threshold = threshold
         self.model = ResNet50(weights='imagenet', include_top=False)
         if not dimensions: 
             input_image = np.zeros((1, 224, 224, 3))
             output = self.model.predict(input_image).flatten()
-            dimensions = output.shape
+            # dimensions = len(self.minhash_signature(output))
+            dimensions = output.shape[0]
         self.vector_manager = Vector_Manager(dimensions=dimensions, save_path=self.save_path)
         # if dimensions == 100352:
         #     self.model = ResNet50(weights='imagenet', include_top=False)
@@ -51,15 +54,23 @@ class Image_Manager:
         self.save()
         self.vector_manager.close()
 
-
+    # method: to get the MinHash signature of a vector
+    def minhash_signature(self, vector):
+        mh = MinHash(num_perm=self.num_perm)
+        for item in vector:
+            mh.update(str(item).encode('utf8'))
+        print(mh.digest())
+        return np.array(mh.digest(), dtype=np.uint8)
+    
     # method: to extract image features
     def extract_features(self, image_path):
         img = load_img(image_path, target_size=(224, 224))  # Bildgröße für ResNet50
         img_array = img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
         img_array = preprocess_input(img_array)
-        features = self.model.predict(img_array)
-        return features.flatten()
+        features = self.model.predict(img_array).flatten()
+        # return self.minhash_signature(features)
+        return features
 
     # def fit_pca_on_folder(self, folder_path):
     #     """Liest alle Bilder aus einem Ordner, extrahiert deren Features und passt PCA an."""
@@ -93,9 +104,9 @@ class Image_Manager:
             self.id_name_map[id] = image_name
             self.save()
             self.counter += 1
+            self.test_jaccard_map[image_name] = features
             return 0
-        else:
-            return 1
+        return 1
 
     
     # function: get similar images 
@@ -103,6 +114,12 @@ class Image_Manager:
         if not threshold: threshold = self.threshold
         image_name = os.path.basename(image_path)
         features = self.extract_features(image_path)
+
+        # mh = MinHash(num_perm=self.num_perm)
+        # for item in features:
+        #     mh.update(str(item).encode('utf8'))
+        # print(mh.digest())
+
         # features = self.transform_features(features)
         similars = []
         (ids, similarities) = self.vector_manager.search(query_vector=features, k=k)
@@ -116,6 +133,14 @@ class Image_Manager:
                 new_img_name = self.id_name_map[id]
                 print(f"Warn: Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{new_img_name}'")
                 similars.append((i, id, new_img_name, sim))
+
+                # ic(self.test_jaccard_map)
+                # sim_features = self.test_jaccard_map[new_img_name]
+                # sim_mh = MinHash(num_perm=self.num_perm)
+                # for item in sim_features:
+                #     sim_mh.update(str(item).encode('utf8'))
+                # print(sim_mh.digest())
+                # ic(sim_mh.jaccard(mh))
         return similars
 
 
