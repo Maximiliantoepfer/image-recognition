@@ -14,6 +14,7 @@ class Vector_Manager:
             self.index = faiss.read_index(self.index_file)
         except Exception as exception:
             print(f"\n{exception}:\n\nCreating new Index\n")
+            ic(dimensions)
             base_index = faiss.IndexFlatIP(dimensions)
             self.index = faiss.IndexIDMap(base_index)
 
@@ -41,7 +42,7 @@ class Vector_Manager:
         sims = sims[0]
         ids = ids[0]
         return (ids, sims)
-    
+
     def get_id_by_name(self, id):
         if id in self.id_map:
             return self.id_map[id]
