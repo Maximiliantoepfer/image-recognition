@@ -11,3 +11,4 @@ langchain
 faiss-cpu
 flask
 uwsgi
+datasketch
