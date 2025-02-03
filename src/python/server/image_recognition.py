@@ -11,7 +11,7 @@ image_manager = Image_Manager()
 print("Started the Image_Manager")
 
 # Directory, for the uploaded images
-UPLOAD_FOLDER = 'src/python/upload'
+UPLOAD_FOLDER = 'upload'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 

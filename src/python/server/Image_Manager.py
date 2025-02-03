@@ -14,7 +14,7 @@ class Image_Manager:
     # Faiss: dimensions=100352, threshold=0.3
     def __init__(self, dimensions=0): 
         self.num_perm=128
-        self.save_path="src/python/data"
+        self.save_path="data"
         self.test_jaccard_map = {}
         os.makedirs(self.save_path, exist_ok=True)
         self.model = ResNet50(weights='imagenet', include_top=False)
