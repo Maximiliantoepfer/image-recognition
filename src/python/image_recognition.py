@@ -3,9 +3,12 @@ from Image_Manager import Image_Manager
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
+
+print("Starting the Image_Manager")
 # Elastic: dimensions=4096, threshold=0.6
 # Faiss: dimensions=100352, threshold=0.3
-image_manager = Image_Manager(threshold=0.3)
+image_manager = Image_Manager()
+print("Started the Image_Manager")
 
 # Directory, for the uploaded images
 UPLOAD_FOLDER = 'src/python/upload'
@@ -39,21 +42,21 @@ def upload_image():
         if result == 0:
             print("Image added")
             return jsonify({
-                "message": "Image uploaded correctly.",
+                "message": "Image uploaded correctly",
                 "image_id": image_id,
                 "image_name": image_name,
                 "saved_path": image_path
             }), 200
         else:
-            print(f"ID '{image_id}' already taken. Image '{image_name}' NOT added")
+            print(f"ID '{image_id}' already taken, Image '{image_name}' NOT added")
             return jsonify({
-                "message": f"ID '{image_id}' already taken. Image '{image_name}' NOT added.",
+                "message": f"ID '{image_id}' already taken, Image '{image_name}' NOT added",
                 "image_id": image_id,
                 "image_name": image_name,
                 "saved_path": image_path
             }), 200
     return jsonify({
-        "error": "Internal Server Error: Image NOT uploaded correctly.",
+        "error": "Internal Server Error: Image NOT uploaded correctly",
         "image_id": image_id,
         "image_name": image_name,
         "saved_path": image_path
@@ -65,8 +68,10 @@ def check_for_similar_images():
         return jsonify({"error": "Kein Bild gefunden"}), 400
 
     image = request.files['image']
-    image_id = request.form.get('image_id')
     image_name = request.form.get('image_name')
+    image_id = request.form.get('image_id')
+    threshold = request.form.get('threshold')
+    k = request.form.get('top_k')
 
     if not image_id or not image_name:
         return jsonify({"error": "image_id und image_name are necessary"}), 400
@@ -75,24 +80,50 @@ def check_for_similar_images():
         image_id = int(image_id)
     except Exception as e:
         return jsonify({"error": f"image_id has to be a number\n{e}"}), 400
+    
+    try:
+        if threshold: threshold = float(threshold)
+        if k: k = int(k)
+    except Exception as e:
+        return jsonify({"error": f"threshold and k have to be numbers\n{e}"}), 400
+
 
     # Bild speichern
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_name)
     image.save(image_path)
     if os.path.isfile(image_path):
-        sims = image_manager.get_similars(
-            image_path=image_path, 
-            k=5
-        )
+        sims = None
+        if threshold and k:
+            sims = image_manager.get_similars(
+                image_path=image_path, 
+                threshold=threshold,
+                k=k
+            )
+        elif threshold:
+            sims = image_manager.get_similars(
+                image_path=image_path, 
+                threshold=threshold
+            )
+        elif k: 
+            sims = image_manager.get_similars(
+                image_path=image_path, 
+                k=k
+            )
+        else:
+            sims = image_manager.get_similars(image_path=image_path)
+        
         if sims:
-            print("There already exists a similar image")
+            print("Similar image already exists")
             print(sims)
             response_data = [
-                {"index": int(i), "image_id": str(id_), "image_name": str(image_name), "similarity": str(similarity)}
-                for i, id_, image_name, similarity in sims
+                {
+                    "index": int(i), "image_id": str(id_),
+                    "image_name": str(image_name), 
+                    "similarity": str(similarity)
+                } for i, id_, image_name, similarity in sims
             ]
             return jsonify({
-                "message": "There are already similar images",
+                "message": "Similar image already exists",
                 "data": response_data
             }), 200
 
@@ -106,7 +137,6 @@ def check_for_similar_images():
 def close_resources(*args):
     print("Server is closing...")
     image_manager.close()
-
 
 
 if __name__ == "__main__":

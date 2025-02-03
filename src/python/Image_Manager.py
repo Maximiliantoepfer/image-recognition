@@ -12,12 +12,11 @@ from datasketch import MinHash
 class Image_Manager:
     # Elastic: dimensions=4096, threshold=0.6
     # Faiss: dimensions=100352, threshold=0.3
-    def __init__(self, dimensions=0, threshold=0.3): 
+    def __init__(self, dimensions=0): 
         self.num_perm=128
         self.save_path="src/python/data"
         self.test_jaccard_map = {}
         os.makedirs(self.save_path, exist_ok=True)
-        self.threshold = threshold
         self.model = ResNet50(weights='imagenet', include_top=False)
         if not dimensions: 
             input_image = np.zeros((1, 224, 224, 3))
@@ -110,8 +109,7 @@ class Image_Manager:
 
     
     # function: get similar images 
-    def get_similars(self, image_path, threshold=0, k=1):
-        if not threshold: threshold = self.threshold
+    def get_similars(self, image_path, threshold=0.3, k=1):
         image_name = os.path.basename(image_path)
         features = self.extract_features(image_path)
 
@@ -128,14 +126,12 @@ class Image_Manager:
         for i, id in enumerate(ids): 
             sim = similarities[i]
             if sim > threshold:
-                ic(self.id_name_map)
-                ic(id)
-                new_img_name = self.id_name_map[id]
-                print(f"Warn: Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{new_img_name}'")
-                similars.append((i, id, new_img_name, sim))
+                sim_img_name = self.id_name_map[id]
+                print(f"Warn: Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{sim_img_name}'")
+                similars.append((i, id, sim_img_name, sim))
 
                 # ic(self.test_jaccard_map)
-                # sim_features = self.test_jaccard_map[new_img_name]
+                # sim_features = self.test_jaccard_map[sim_img_name]
                 # sim_mh = MinHash(num_perm=self.num_perm)
                 # for item in sim_features:
                 #     sim_mh.update(str(item).encode('utf8'))
