@@ -10,5 +10,6 @@ configparser
 langchain
 faiss-cpu
 flask
+uwsgi
 datasketch
 pymysql
