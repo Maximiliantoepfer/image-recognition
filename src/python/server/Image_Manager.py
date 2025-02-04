@@ -12,10 +12,9 @@ from datasketch import MinHash
 class Image_Manager:
     # Elastic: dimensions=4096, threshold=0.6
     # Faiss: dimensions=100352, threshold=0.3
-    def __init__(self, dimensions=0): 
+    def __init__(self, dimensions=0, save_path="data"): 
         self.num_perm=128
-        self.save_path="data"
-        self.test_jaccard_map = {}
+        self.save_path=save_path
         os.makedirs(self.save_path, exist_ok=True)
         self.model = ResNet50(weights='imagenet', include_top=False)
         if not dimensions: 
@@ -34,11 +33,12 @@ class Image_Manager:
         #     self.model = Model(inputs=base_model.input, outputs=reduced_output)
 
         self.counter = 0
-        self.id_name_map = {}
-        self.id_name_map_file = os.path.join(self.save_path, "id_name_map.pkl")
-        if os.path.exists(self.id_name_map_file):
-            with open(self.id_name_map_file, "rb") as f:
-                self.id_name_map = pickle.load(f)
+        # self.id_name_map = {}
+        # self.id_name_map_file = os.path.join(self.save_path, "id_name_map.pkl")
+        # if os.path.exists(self.id_name_map_file):
+        #     with open(self.id_name_map_file, "rb") as f:
+        #         self.id_name_map = pickle.load(f)
+
         # PCA setup
         # self.pca = PCA(n_components=4096)
         # if pca_fit_folder:
@@ -46,8 +46,8 @@ class Image_Manager:
 
     def save(self):
         self.vector_manager.save()
-        with open(self.id_name_map_file, "wb") as f:
-            pickle.dump(self.id_name_map, f)
+        # with open(self.id_name_map_file, "wb") as f:
+        #     pickle.dump(self.id_name_map, f)
 
     def close(self):
         self.save()
@@ -95,17 +95,17 @@ class Image_Manager:
     
     # function: to add a new image 
     def add_image(self, image_path :str, id :int):
-        image_name = os.path.basename(image_path)
-        features = self.extract_features(image_path)
-        # features = self.transform_features(features)
-        if not self.vector_manager.exists_id(id=id):
+        # image_name = os.path.basename(image_path)
+        if not self.vector_manager.exists_id(id):
+            features = self.extract_features(image_path)
+            # features = self.transform_features(features)
             self.vector_manager.add(id=id, vector=features)
-            self.id_name_map[id] = image_name
-            self.save()
+            # self.id_name_map[id] = image_name
+            # self.save()
             self.counter += 1
-            self.test_jaccard_map[image_name] = features
             return 0
-        return 1
+        else:
+            return 1
 
     
     # function: get similar images 
@@ -126,9 +126,9 @@ class Image_Manager:
         for i, id in enumerate(ids): 
             sim = similarities[i]
             if sim > threshold:
-                sim_img_name = self.id_name_map[id]
-                print(f"Warn: Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{sim_img_name}'")
-                similars.append((i, id, sim_img_name, sim))
+                # sim_img_name = self.id_name_map[id]
+                print(f"Warn: Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{id}'")
+                similars.append((i, id, sim))
 
                 # ic(self.test_jaccard_map)
                 # sim_features = self.test_jaccard_map[sim_img_name]
@@ -144,7 +144,7 @@ class Image_Manager:
     def delete_by_ids(self, ids: list):
         self.vector_manager.delete(ids=ids)
 
-    def delete_by_name(self, name: str):
-        id_ = self.vector_manager.get_id_by_name(name)
-        self.vector_manager.delete(ids=[id_])
+    # def delete_by_name(self, name: str):
+    #     id_ = self.vector_manager.get_id_by_name(name)
+    #     self.vector_manager.delete(ids=[id_])
 

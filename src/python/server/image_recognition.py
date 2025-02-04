@@ -23,10 +23,10 @@ def upload_image():
 
     image = request.files['image']
     image_id = request.form.get('image_id')
-    image_name = request.form.get('image_name')
+    image_name = f"{str(image_id)}.png" # request.form.get('image_name')
 
-    if not image_id or not image_name:
-        return jsonify({"error": "image_id und image_name are necessary"}), 400
+    if not image_id:
+        return jsonify({"error": "image_id is necessary"}), 400
 
     try:
         image_id = int(image_id)
@@ -36,31 +36,41 @@ def upload_image():
     # Bild speichern
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_name)
     image.save(image_path)
+    json, code = {}, 500
     if os.path.isfile(image_path):
         print("Adding Image")
         result = image_manager.add_image(image_path=image_path, id=image_id)
         if result == 0:
             print("Image added")
-            return jsonify({
+            json = {
                 "message": "Image uploaded correctly",
                 "image_id": image_id,
-                "image_name": image_name,
+                # "image_name": image_name,
                 "saved_path": image_path
-            }), 200
+            }
+            code = 200
         else:
-            print(f"ID '{image_id}' already taken, Image '{image_name}' NOT added")
-            return jsonify({
-                "message": f"ID '{image_id}' already taken, Image '{image_name}' NOT added",
+            print(f"ID '{image_id}' already taken, Image NOT added")
+            json = {
+                "message": f"ID '{image_id}' is already taken, Image NOT added",
                 "image_id": image_id,
-                "image_name": image_name,
+                # "image_name": image_name,
                 "saved_path": image_path
-            }), 200
-    return jsonify({
-        "error": "Internal Server Error: Image NOT uploaded correctly",
-        "image_id": image_id,
-        "image_name": image_name,
-        "saved_path": image_path
-    }), 500
+            }
+            code = 201
+    else:
+        json = {
+            "error": "Internal Server Error: Image NOT uploaded correctly",
+            "image_id": image_id,
+            # "image_name": image_name,
+            "saved_path": image_path
+        }   
+        code = 500
+        
+    if os.path.exists(image_path):
+        os.remove(image_path)
+    
+    return jsonify(json), code
 
 @app.route('/similar-images', methods=['POST'])
 def check_for_similar_images():
@@ -68,13 +78,13 @@ def check_for_similar_images():
         return jsonify({"error": "Kein Bild gefunden"}), 400
 
     image = request.files['image']
-    image_name = request.form.get('image_name')
     image_id = request.form.get('image_id')
+    image_name = f"{str(image_id)}.png" # request.form.get('image_name')
     threshold = request.form.get('threshold')
     k = request.form.get('top_k')
 
-    if not image_id or not image_name:
-        return jsonify({"error": "image_id und image_name are necessary"}), 400
+    if not image_id:
+        return jsonify({"error": "image_id is necessary"}), 400
 
     try:
         image_id = int(image_id)
@@ -87,10 +97,10 @@ def check_for_similar_images():
     except Exception as e:
         return jsonify({"error": f"threshold and k have to be numbers\n{e}"}), 400
 
-
     # Bild speichern
     image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_name)
     image.save(image_path)
+    json, code = {}, 500
     if os.path.isfile(image_path):
         sims = None
         if threshold and k:
@@ -111,28 +121,44 @@ def check_for_similar_images():
             )
         else:
             sims = image_manager.get_similars(image_path=image_path)
-        
+
         if sims:
             print("Similar image already exists")
             print(sims)
             response_data = [
                 {
                     "index": int(i), "image_id": str(id_),
-                    "image_name": str(image_name), 
+                    # "image_name": str(image_name), 
                     "similarity": str(similarity)
-                } for i, id_, image_name, similarity in sims
+                } for i, id_, similarity in sims
             ]
-            return jsonify({
+            json = {
                 "message": "Similar image already exists",
                 "data": response_data
-            }), 200
+            }
+            code = 200
+        else:
+            json = {
+                "message": "No similar images.",
+                "image_id": image_id,
+                # "image_name": image_name,
+                "saved_path": image_path
+            }
+            code = 200
+    else:
+        json = {
+            "error": "Internal Server Error: Image could NOT be opened correctly",
+            "image_id": image_id,
+            # "image_name": image_name,
+            "saved_path": image_path
+        }   
+        code = 500    
 
-    return jsonify({
-        "message": "No similar images.",
-        "image_id": image_id,
-        "image_name": image_name,
-        "saved_path": image_path
-    }), 200
+    if os.path.exists(image_path):
+        os.remove(image_path)
+
+    return jsonify(json), code
+
 
 def close_resources(*args):
     print("Server is closing...")
@@ -141,6 +167,10 @@ def close_resources(*args):
 
 if __name__ == "__main__":
     print("\n_____________________ START _____________________\n")
-    app.run(host='0.0.0.0', port=5000, debug=False) 
+    app.run(
+        host='0.0.0.0', 
+        port=5002, 
+        debug=False
+    ) 
     image_manager.close() 
 
