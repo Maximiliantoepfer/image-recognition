@@ -141,6 +141,6 @@ def close_resources(*args):
 
 if __name__ == "__main__":
     print("\n_____________________ START _____________________\n")
-    app.run(debug=False)
-    image_manager.close()
+    app.run(host='0.0.0.0', port=5000, debug=False) 
+    image_manager.close() 
 
