@@ -121,8 +121,6 @@ class Image_Manager:
         # features = self.transform_features(features)
         similars = []
         (ids, similarities) = self.vector_manager.search(query_vector=features, k=k)
-        ic(ids)
-        ic(similarities)
         for i, id in enumerate(ids): 
             sim = similarities[i]
             if sim > threshold:

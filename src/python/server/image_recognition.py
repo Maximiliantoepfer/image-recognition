@@ -159,17 +159,38 @@ def check_for_similar_images():
 
     return jsonify(json), code
 
+@app.route('/delete', methods=['DELETE'])
+def delete_image():
+    image_id = request.form.get('image_id')
+    if not image_id: 
+        image_id = request.args.get('image_id') 
+    try:
+        if not image_id:
+            return jsonify({"error": "parameter 'image_id' is necessary"}), 400
+        elif image_id:
+            try: 
+                image_id = int(image_id)
+            except Exception as e:
+                print(e)
+                jsonify({"error": f"parameter 'image_id={image_id}' must be an integer"}), 400
+            image_manager.delete_by_ids(ids=[image_id])
+            print(f"Deleted image_id: {image_id}")
+            return jsonify({"message": f"deleted image_id: {image_id}"}), 200
+    except Exception as e:
+        print(e)
+        return jsonify({"error": "could not delete ids, maybe ids are already deleted"}), 400
 
 def close_resources(*args):
     print("Server is closing...")
     image_manager.close()
 
 
+
 if __name__ == "__main__":
     print("\n_____________________ START _____________________\n")
     app.run(
         host='0.0.0.0', 
-        port=5002, 
+        port=5000, 
         debug=False
     ) 
     image_manager.close() 
