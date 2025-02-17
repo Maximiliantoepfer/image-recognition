@@ -1,0 +1,4 @@
+log_level: INFO
+storage:
+  vectors:
+    max_dimension: 100400  # Hier die gewünschte Dimension angeben
