@@ -107,6 +107,27 @@ class Image_Manager:
         else:
             return 1
 
+    def add_bulk_images(self, image_paths :list, ids :list):
+        vectors_to_add = []
+        ids_to_add = []
+        already_existing = []
+        try:
+            for i, _id in enumerate(ids):
+                # image_name = os.path.basename(image_path)
+                if self.vector_manager.exists_id(_id):
+                    already_existing.append(_id)
+                else:
+                    features = self.extract_features(image_paths[i])
+                    vectors_to_add.append(features)
+                    ids_to_add.append(_id)
+            print("1")
+            if ids_to_add and vectors_to_add:
+                self.vector_manager.add_bulk(ids=ids_to_add, vectors=vectors_to_add)
+            print("2")
+        except Exception as e:
+            print(f"Error by bulk adding images: {e}")
+            return None
+        return {"added": ids_to_add, "already_existing": already_existing}
     
     # function: get similar images 
     def get_similars(self, image_path, threshold=0.3, k=1):

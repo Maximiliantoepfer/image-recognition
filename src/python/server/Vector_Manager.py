@@ -1,4 +1,5 @@
 import os
+import time
 import pickle
 import faiss
 import numpy as np
@@ -8,6 +9,10 @@ from icecream import ic
 
 class Vector_Manager:
     def __init__(self, dimensions, save_path=""):
+        self.duration_save_faiss = 0.0
+        self.duration_save_pickle = 0.0
+        self.duration_add_faiss = 0.0
+        self.duration_add_pickle = 0.0
         print(save_path)
         self.index_file = os.path.join(save_path, "faiss_index.bin")
         try:
@@ -33,6 +38,13 @@ class Vector_Manager:
 
 
     def close(self):
+        self.save()
+
+    def add_bulk(self, ids, vectors): 
+        vectors = normalize(np.array(vectors), norm='l2')
+        ids = np.array(ids, dtype=np.int64)
+        self.index.add_with_ids(vectors, ids)
+        self.ids.extend(ids)
         self.save()
 
 

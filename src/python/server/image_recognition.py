@@ -72,6 +72,58 @@ def upload_image():
     
     return jsonify(json), code
 
+@app.route('/upload-bulk', methods=['POST'])
+def upload_bulk_images():
+    if 'images' not in request.files:
+        return jsonify({"error": "Kein Bild gefunden"}), 400
+    
+    try:
+        # request.form.get('image_name')
+        image_ids = request.form.get('image_ids').split(',')
+        image_ids = [int(image_id.strip()) for image_id in image_ids]
+        image_names = [f"{str(image_id)}.png" for image_id in image_ids]
+        images = request.files.getlist('images')
+        print(f"image ids {image_ids}")
+    except Exception as e:
+        return jsonify({"error": f"image_id has to be a number! {e}"}), 400
+    
+    if not image_ids:
+        return jsonify({"error": "image_id is necessary"}), 400
+    if len(image_ids) != len(images):
+        print(f"ids {image_ids}, len {len(image_ids)} / images len {len(images)}") 
+        return jsonify({"error": "length of image_ids and images are not equal"}), 400
+    
+    # Bilder speichern
+    image_paths_to_add = []
+    image_ids_to_add = []
+    for i, image in enumerate(images):
+        image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_names[i])
+        image.save(image_path)
+        if os.path.isfile(image_path):
+            image_paths_to_add.append(image_path)
+            image_ids_to_add.append(image_ids[i])
+    
+    print("Adding Images")
+    json, code = {}, 500
+    result = image_manager.add_bulk_images(image_paths=image_paths_to_add, ids=image_ids_to_add)
+    if result:
+        print("Image added")
+        json = result
+        code = 200
+    else:
+        json = {
+            "error": "Internal Server Error: Images NOT uploaded correctly",
+            "image_ids": image_ids,
+            # "image_name": image_name,
+            "saved_paths": image_paths_to_add
+        }   
+        code = 500
+    for image_path in image_paths_to_add:   
+        if os.path.exists(image_path):
+            os.remove(image_path)
+    return jsonify(json), code  
+
+
 @app.route('/similar-images', methods=['POST'])
 def check_for_similar_images():
     if 'image' not in request.files:
