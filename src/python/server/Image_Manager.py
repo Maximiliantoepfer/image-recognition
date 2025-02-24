@@ -1,4 +1,5 @@
 import os
+import sys
 import numpy as np
 import pickle
 from icecream import ic
@@ -68,7 +69,8 @@ class Image_Manager:
             if ids_to_add and vectors_to_add:
                 self.vector_manager.add_bulk(ids=ids_to_add, vectors=vectors_to_add)
         except Exception as e:
-            print(f"Error by bulk adding images: {e}")
+            
+            print(f"Error by bulk adding images: {e} \n{sys.exc_info()}")
             return None
         return {"added": ids_to_add, "already_existing": already_existing}
     
