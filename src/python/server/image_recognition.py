@@ -212,22 +212,28 @@ def check_for_similar_images():
     return jsonify(json), code
 
 @app.route('/delete', methods=['DELETE'])
-def delete_image():
-    image_id = request.form.get('image_id')
-    if not image_id: 
-        image_id = request.args.get('image_id') 
+def delete_images():
+    from icecream import ic
+    import math
+    image_ids = request.form.get('image_ids')
+    if not image_ids: 
+        image_ids = request.args.get('image_ids')
+    if image_ids:
+        image_ids = image_ids.split(',')
+    else:
+        return jsonify({"error": "parameter 'image_id' or body field 'image_ids' is necessary"}), 400
+    ic(image_ids)
+    try: 
+        image_ids = [int(image_id.strip()) for image_id in image_ids]
+    except Exception as e:
+        print(e)
+        jsonify({"error": f"parameter 'image_ids={image_ids}' must be a list of integers"}), 400
+    ic(image_ids)
     try:
-        if not image_id:
-            return jsonify({"error": "parameter 'image_id' is necessary"}), 400
-        elif image_id:
-            try: 
-                image_id = int(image_id)
-            except Exception as e:
-                print(e)
-                jsonify({"error": f"parameter 'image_id={image_id}' must be an integer"}), 400
-            image_manager.delete_by_ids(ids=[image_id])
-            print(f"Deleted image_id: {image_id}")
-            return jsonify({"message": f"deleted image_id: {image_id}"}), 200
+        deleted_images = image_manager.delete_by_ids(ids=image_ids)
+        log = f"Deleted image_ids: {deleted_images}, already not existing: {[_id for _id in image_ids if _id not in deleted_images]}"  
+        print(log)
+        return jsonify({"message": log}), 200
     except Exception as e:
         print(e)
         return jsonify({"error": "could not delete ids, maybe ids are already deleted"}), 400

@@ -93,7 +93,7 @@ class Image_Manager:
 
     # delete functions
     def delete_by_ids(self, ids: list):
-        self.vector_manager.delete(ids=ids)
+        return self.vector_manager.delete(ids=ids)
 
     # def delete_by_name(self, name: str):
     #     id_ = self.vector_manager.get_id_by_name(name)
