@@ -1,4 +1,6 @@
 import os
+import signal
+import atexit
 from Image_Manager import Image_Manager
 from flask import Flask, request, jsonify
 
@@ -237,19 +239,22 @@ def delete_images():
     except Exception as e:
         print(e)
         return jsonify({"error": "could not delete ids, maybe ids are already deleted"}), 400
+    
 
 def close_resources(*args):
-    print("Server is closing...")
+    print("Server is closing ...")
     image_manager.close()
 
-
+signal.signal(signal.SIGINT, close_resources)   # Ctrl+C
+signal.signal(signal.SIGTERM, close_resources)  # z.B. `kill PID`
+atexit.register(close_resources)
 
 if __name__ == "__main__":
     print("\n_____________________ START _____________________\n")
     app.run(
         host='0.0.0.0', 
-        port=5000, 
+        port=5001, 
         debug=False
     ) 
-    image_manager.close() 
+    close_resources() 
 
