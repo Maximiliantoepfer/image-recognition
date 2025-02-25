@@ -3,8 +3,10 @@ import signal
 import atexit
 from Image_Manager import Image_Manager
 from flask import Flask, request, jsonify
+from gevent.pywsgi import WSGIServer
 
 app = Flask(__name__)
+http_server = None
 
 print("Starting the Image_Manager")
 # Elastic: dimensions=4096, threshold=0.6
@@ -242,19 +244,30 @@ def delete_images():
     
 
 def close_resources(*args):
-    print("Server is closing ...")
+    if http_server:
+        print("\n[INFO] Server wird heruntergefahren ...")
+        http_server.stop()  # Stoppt den WSGIServer sauber
     image_manager.close()
+    print("[INFO] Ressourcen wurden freigegeben.")
 
+# Signale für Ctrl+C, `kill`, etc. registrieren
 signal.signal(signal.SIGINT, close_resources)   # Ctrl+C
-signal.signal(signal.SIGTERM, close_resources)  # z.B. `kill PID`
-atexit.register(close_resources)
+signal.signal(signal.SIGTERM, close_resources)  # `kill PID`
+signal.signal(signal.SIGQUIT, close_resources)  # `kill -3 PID`
+signal.signal(signal.SIGHUP, close_resources)   # Terminal geschlossen
+atexit.register(close_resources)  # Falls das Skript durch andere Fehler beendet wird
 
 if __name__ == "__main__":
     print("\n_____________________ START _____________________\n")
-    app.run(
-        host='0.0.0.0', 
-        port=5001, 
-        debug=False
-    ) 
-    close_resources() 
+    http_server = WSGIServer(('0.0.0.0', 5000), app)
+
+    try:
+        http_server.serve_forever()
+    except (KeyboardInterrupt, SystemExit):
+        print("\n[INFO] Beenden durch Signal empfangen.")
+    except Exception as e:
+        print(f"\n[ERROR] Unerwarteter Fehler: {e}")
+    finally:
+        close_resources()
+
 

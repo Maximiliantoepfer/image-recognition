@@ -13,3 +13,5 @@ flask
 uwsgi
 datasketch
 pymysql
+tqdm
+gevent
