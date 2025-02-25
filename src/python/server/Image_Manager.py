@@ -2,13 +2,14 @@ import os
 import sys
 import numpy as np
 import pickle
+import time
 from icecream import ic
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
 from sklearn.decomposition import PCA
 from Vector_Manager import Vector_Manager
-
+import logging
 
 class Image_Manager:
     # Elastic: dimensions=4096, threshold=0.6
@@ -24,6 +25,14 @@ class Image_Manager:
             dimensions = output.shape[0]
         self.vector_manager = Vector_Manager(dimensions=dimensions, save_path=self.save_path)
         self.counter = 0
+        self.duration_open_images = 0.0
+
+        self.logger = logging.getLogger(f"image_manager")
+        self.logger.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_handler = logging.FileHandler("image_manager.log", mode="w")
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
 
 
     def save(self):
@@ -35,7 +44,10 @@ class Image_Manager:
     
     # method: to extract image features
     def extract_features(self, image_path):
+        ts = time.time()
         img = load_img(image_path, target_size=(224, 224))  # Bildgröße für ResNet50
+        te = time.time()
+        self.duration_open_images += te-ts
         img_array = img_to_array(img)
         img_array = np.expand_dims(img_array, axis=0)
         img_array = preprocess_input(img_array)
@@ -69,9 +81,9 @@ class Image_Manager:
             if ids_to_add and vectors_to_add:
                 self.vector_manager.add_bulk(ids=ids_to_add, vectors=vectors_to_add)
         except Exception as e:
-            
-            print(f"Error by bulk adding images: {e} \n{sys.exc_info()}")
+            self.logger.error(f"Error by bulk adding images: {e} \n{sys.exc_info()}")
             return None
+        self.logger.info(f"Duration for open images: {self.duration_open_images} sec")
         return {"added": ids_to_add, "already_existing": already_existing}
     
     # function: get similar images 
@@ -85,7 +97,7 @@ class Image_Manager:
             sim = similarities[i]
             if sim > threshold:
                 # sim_img_name = self.id_name_map[id]
-                print(f"Warn: Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{id}'")
+                self.logger.info(f"Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{id}'")
                 similars.append((i, id, sim))
 
         return similars

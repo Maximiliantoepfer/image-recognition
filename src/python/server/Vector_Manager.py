@@ -86,19 +86,11 @@ class Vector_Manager:
         faiss.write_index(self.indices[index_name], index_file)
 
     def save_index(self, index_file, index_name):
-        ts_save_index = time.time()
         faiss.write_index(self.indices[index_name], index_file)
-        te_save_index = time.time()
-        duration_save_index = round(te_save_index - ts_save_index, 2)
-        self.logger.info(f"Duration for save faiss index: {duration_save_index} sec")
-        
+  
     def save_ids(self):
-        ts_save_ids = time.time()
         with open(self.save_file, "wb") as f:
             pickle.dump(self.ids, f)
-        te_save_ids = time.time()
-        duration_save_ids = round(te_save_ids - ts_save_ids, 2)
-        self.logger.info(f"Duration for saving ids: {duration_save_ids} sec")
 
 
     # def save(self):
@@ -118,9 +110,18 @@ class Vector_Manager:
     #     self.logger.info(f"Total Duration for saving: {duration_save_ids+duration_save_index} sec")
 
     def save(self):
+        ts_save_index = time.time()
         for index in self.indices.keys():
             self.save_index(self.get_index_file_path(index), index)
+        te_save_index = time.time()
+        duration_save_indices = round(te_save_index - ts_save_index, 2)
+        self.logger.info(f"Duration for save faiss indices: {duration_save_indices} sec")
+      
+        ts_save_ids = time.time()
         self.save_ids()
+        te_save_ids = time.time()
+        duration_save_ids = round(te_save_ids - ts_save_ids, 2)
+        self.logger.info(f"Duration for saving ids: {duration_save_ids} sec")
 
     def close(self):
         self.save()
@@ -201,7 +202,7 @@ class Vector_Manager:
         # ids = ids[0]
         ids = []
         sims = []
-        print(self.indices.keys())
+        # print(self.indices.keys())
         for index in self.indices.keys():
             _sims, _ids = self.indices[index].search(query_vector, k=k)
             sims.extend(_sims[0])
