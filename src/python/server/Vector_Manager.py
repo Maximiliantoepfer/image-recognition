@@ -27,14 +27,17 @@ class Vector_Manager:
         self.save_path = save_path
         self.logger.info(save_path)
         self.indices = {}
-        index_paths = glob.glob(f"{save_path}/faiss_index-*.bin")
-        for path in index_paths:
+        load_start = time.time()
+        self.index_paths = glob.glob(f"{save_path}/faiss_index-*.bin")
+        for path in self.index_paths:
             index_name = os.path.splitext(os.path.basename(path))[0]
             self.logger.info(index_name)
             try: 
                 self.indices[index_name] = faiss.read_index(path)
             except Exception as e:
                 self.logger.error(f"Error by reading faiss index {path}")
+        load_end = time.time()
+        self.logger.info(f"Duration for loading indices: {round(load_end-load_start, 2)} sec")
         # self.index_file = os.path.join(save_path, "faiss_index.bin")
         # try:
         #     ts_read_index = time.time()
@@ -60,6 +63,19 @@ class Vector_Manager:
         duration_load_ids = round(te_load_ids - ts_load_ids, 2)
         self.logger.info(f"Duration for loading ids: {duration_load_ids} sec")
     
+    def load_indices(self, index_names):
+        if index_names:
+            self.index_paths = [f"{self.save_path}/{name}.bin" for name in index_names]
+        else:
+            self.index_paths = glob.glob(f"{self.save_path}/faiss_index-*.bin")
+        for path in self.index_paths:
+            index_name = os.path.splitext(os.path.basename(path))[0]
+            self.logger.info(index_name)
+            try: 
+                self.indices[index_name] = faiss.read_index(path)
+            except Exception as e:
+                self.logger.error(f"Error by reading faiss index {path}")
+
     def get_index_file_path(self, index_name): 
         return f"{self.save_path}/{index_name}.bin"
     
@@ -69,21 +85,20 @@ class Vector_Manager:
         self.indices[index_name] = faiss.IndexIDMap(base_index)
         faiss.write_index(self.indices[index_name], index_file)
 
-    def save(self, index_file, index_name):
+    def save_index(self, index_file, index_name):
         ts_save_index = time.time()
         faiss.write_index(self.indices[index_name], index_file)
         te_save_index = time.time()
         duration_save_index = round(te_save_index - ts_save_index, 2)
         self.logger.info(f"Duration for save faiss index: {duration_save_index} sec")
         
+    def save_ids(self):
         ts_save_ids = time.time()
         with open(self.save_file, "wb") as f:
             pickle.dump(self.ids, f)
         te_save_ids = time.time()
         duration_save_ids = round(te_save_ids - ts_save_ids, 2)
         self.logger.info(f"Duration for saving ids: {duration_save_ids} sec")
-        
-        self.logger.info(f"Total Duration for saving: {duration_save_ids+duration_save_index} sec")
 
 
     # def save(self):
@@ -102,10 +117,14 @@ class Vector_Manager:
 
     #     self.logger.info(f"Total Duration for saving: {duration_save_ids+duration_save_index} sec")
 
+    def save(self):
+        for index in self.indices.keys():
+            self.save_index(self.get_index_file_path(index), index)
+        self.save_ids()
 
     def close(self):
-        for index in self.indices.keys():
-            self.save(self.get_index_file_path(index), index)
+        self.save()
+        self.indices.clear()
 
     def add_bulk(self, ids, vectors): 
         id_groups = {}
@@ -121,6 +140,7 @@ class Vector_Manager:
         
         for group_name in id_groups.keys():
             index_name = f"faiss_index-{group_name}"
+            
             index_file = self.get_index_file_path(index_name=index_name)
             if not index_name in self.indices.keys():
                 self.create_faiss_index(index_file=index_file, index_name=index_name)
@@ -129,7 +149,7 @@ class Vector_Manager:
             _ids = np.array(id_groups[group_name]["ids"], dtype=np.int64)
             self.indices[index_name].add_with_ids(_vectors, _ids)
             self.ids.extend(ids)
-            self.save(index_file, index_name)
+        self.save()
         id_groups.clear()
 
         # vectors = normalize(np.array(vectors), norm='l2')
@@ -219,8 +239,7 @@ class Vector_Manager:
                 if ids_to_remove:
                     self.indices[index_name].remove_ids(np.array(ids_to_remove, dtype=np.int64))
                 all_removed_ids.extend(ids_to_remove)
-                index_file = self.get_index_file_path(index_name=index_name)
-                self.save(index_file, index_name)
+            self.save()
             id_groups.clear()
             return all_removed_ids
         return []
