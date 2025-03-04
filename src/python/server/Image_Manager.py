@@ -7,7 +7,6 @@ from icecream import ic
 from tensorflow.keras.applications import ResNet50
 from tensorflow.keras.applications.resnet50 import preprocess_input
 from tensorflow.keras.preprocessing.image import load_img, img_to_array
-from sklearn.decomposition import PCA
 from Vector_Manager import Vector_Manager
 import logging
 
@@ -15,7 +14,14 @@ class Image_Manager:
     # Elastic: dimensions=4096, threshold=0.6
     # Faiss: dimensions=100352, threshold=0.3
     def __init__(self, dimensions=0, save_path="data"): 
-        self.num_perm=128
+        self.logger = logging.getLogger(f"image_manager")
+        self.logger.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_handler = logging.FileHandler("image_manager.log", mode="w")
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
+        self.logger.info("Starting Image Manager")
+
         self.save_path=save_path
         os.makedirs(self.save_path, exist_ok=True)
         self.model = ResNet50(weights='imagenet', include_top=False)
@@ -23,24 +29,21 @@ class Image_Manager:
             input_image = np.zeros((1, 224, 224, 3))
             output = self.model.predict(input_image).flatten()
             dimensions = output.shape[0]
+            self.logger.info(f"{dimensions} Dimensions")
         self.vector_manager = Vector_Manager(dimensions=dimensions, save_path=self.save_path)
         self.counter = 0
         self.duration_open_images = 0.0
+        self.logger.info("Image Manager started successfully")
 
-        self.logger = logging.getLogger(f"image_manager")
-        self.logger.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        file_handler = logging.FileHandler("image_manager.log", mode="w")
-        file_handler.setFormatter(formatter)
-        self.logger.addHandler(file_handler)
 
 
     def save(self):
-        self.vector_manager.save()
+        self.vector_manager.close()
 
     def close(self):
+        self.logger.info("Image_Manager is closing ...")
         self.save()
-        self.vector_manager.close()
+        self.logger.info("Image_Manager closed")
     
     # method: to extract image features
     def extract_features(self, image_path):
@@ -92,15 +95,18 @@ class Image_Manager:
         features = self.extract_features(image_path)
 
         similars = []
-        (ids, similarities) = self.vector_manager.search(query_vector=features, k=k)
-        for i, id in enumerate(ids): 
-            sim = similarities[i]
-            if sim > threshold:
-                # sim_img_name = self.id_name_map[id]
-                self.logger.info(f"Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{id}'")
-                similars.append((i, id, sim))
-
-        return similars
+        result = self.vector_manager.search(query_vector=features, k=k)
+        if result:
+            (ids, similarities) = result
+            for i, id in enumerate(ids): 
+                sim = similarities[i]
+                if sim > threshold:
+                    # sim_img_name = self.id_name_map[id]
+                    self.logger.info(f"Image '{image_name}' is up to {(round(sim*100, 2))}% similar to '{id}'")
+                    similars.append((i, id, sim))
+            return similars
+        else:
+            return None
 
 
     # delete functions
